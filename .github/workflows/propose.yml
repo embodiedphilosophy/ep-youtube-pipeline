@@ -1,0 +1,20 @@
+name: Propose YouTube videos (weekly)
+on:
+  schedule:
+    - cron: "17 7 * * 1"   # Mondays 07:17 UTC
+  workflow_dispatch:
+jobs:
+  propose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install requests
+      - run: python pipeline/propose.py
+        env:
+          VIMEO_TOKEN: ${{ secrets.VIMEO_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPS_PIPELINE_SECRET: ${{ secrets.OPS_PIPELINE_SECRET }}
+          OPS_URL: ${{ vars.OPS_URL }}
+          VIMEO_QUEUE_FOLDER_ID: ${{ vars.VIMEO_QUEUE_FOLDER_ID }}

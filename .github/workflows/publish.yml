@@ -1,0 +1,25 @@
+name: Publish cut to YouTube
+# Ops fires this from the "Push to YouTube" button (event "publish", payload {cut_id}).
+on:
+  repository_dispatch:
+    types: [publish]
+  workflow_dispatch:
+    inputs:
+      cut_id: { required: true }
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install requests
+      - run: python pipeline/publish_youtube.py --cut-id "${{ github.event.client_payload.cut_id || inputs.cut_id }}"
+        env:
+          VIMEO_TOKEN: ${{ secrets.VIMEO_TOKEN }}
+          OPS_PIPELINE_SECRET: ${{ secrets.OPS_PIPELINE_SECRET }}
+          OPS_URL: ${{ vars.OPS_URL }}
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}

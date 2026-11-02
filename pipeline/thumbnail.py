@@ -88,11 +88,16 @@ def wrap(text, font, max_w, draw):
 
 # ------------------------------------------------------------------ render
 def render(frame_path, headline, out_path, accent=None, teacher=None, series=None,
-           background=None, max_text_w=560):
+           background=None, max_text_w=560, bg_frame=None):
     """headline: 2–6 words, rendered all caps. accent: optional short phrase in italic serif."""
     bg_files = [background] if background else sorted((ASSETS / "backgrounds").glob("*.[jp][pn]g"))
     if bg_files:
         bg = cover(Image.open(random.choice(bg_files)).convert("RGB"), W, H)
+    elif bg_frame:  # no art supplied yet: blurred, darkened, tinted frame from the video
+        from PIL import ImageEnhance
+        bg = cover(Image.open(bg_frame).convert("RGB"), W, H).filter(ImageFilter.GaussianBlur(28))
+        bg = ImageEnhance.Brightness(bg).enhance(0.55)
+        bg = Image.blend(bg, Image.new("RGB", (W, H), (34, 52, 48)), 0.35)
     else:
         bg = Image.new("RGB", (W, H), (24, 22, 30))
     canvas = bg.convert("RGBA")

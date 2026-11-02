@@ -92,6 +92,14 @@ def vimeo_upload(path, name, description="", private=True):
     return vid
 
 
+def vimeo_set_picture(vid, image_path):
+    """Make a local JPEG the video's cover image on Vimeo."""
+    d = vimeo("POST", f"/videos/{vid}/pictures")
+    with open(image_path, "rb") as f:
+        requests.put(d["link"], data=f, headers={"Content-Type": "image/jpeg"}, timeout=120).raise_for_status()
+    vimeo("PATCH", d["uri"], json={"active": True})
+
+
 # ---------------------------------------------------------------- Claude
 def claude_json(system, user, max_tokens=4000):
     r = requests.post("https://api.anthropic.com/v1/messages", timeout=600, headers={

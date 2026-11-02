@@ -9,8 +9,8 @@ import json
 import re
 import subprocess
 
-from common import (WORK, best_source_link, claude_json, download, hms, ops, vimeo,
-                    vimeo_upload)
+from common import (WORK, best_source_link, claude_json, download, hms, ops, showcase_videos,
+                    vimeo, vimeo_id, vimeo_set_picture, vimeo_upload)
 from thumbnail import pick_frame, render
 
 MIN_S, MAX_S = 15 * 60, 20 * 60
@@ -135,9 +135,15 @@ def main():
     ap.add_argument("--headline")
     ap.add_argument("--accent")
     ap.add_argument("--thumb-only", help="Ops cut_id: just re-render that cut's thumbnail")
+    ap.add_argument("--dry-run", action="store_true",
+                    help="test mode: park the cut on Vimeo with its thumbnail, skip Ops")
     a = ap.parse_args()
 
     vid = a.vimeo_id
+    if vid == "auto":  # test helper: most-played long talk in the showcase
+        vids = [v for v in showcase_videos() if 40 * 60 <= v.get("duration", 0) <= 120 * 60]
+        vid = vimeo_id(max(vids, key=lambda v: (v.get("stats") or {}).get("plays") or 0)["uri"])
+        print("Auto-picked video", vid)
     if a.thumb_only:  # fast path when staff only change the headline/accent
         c = ops("GET", f"/cuts/{a.thumb_only}")
         src = download(best_source_link(vid), WORK / f"{vid}.mp4")
@@ -160,13 +166,26 @@ def main():
 
     src = src or download(best_source_link(vid), WORK / f"{vid}.mp4")
     out = cut(src, start, end, WORK / f"{vid}_yt.mp4")
-    thumb = render(pick_frame(frames(src, start, end)), a.headline or plan["thumb_headline"],
+    fr = frames(src, start, end)
+    best = pick_frame(fr)
+    thumb = render(best, a.headline or plan["thumb_headline"],
                    WORK / f"{vid}_thumb.jpg", accent=a.accent or plan.get("thumb_accent"),
-                   teacher=teacher, series=series)
+                   teacher=teacher, series=series, bg_frame=fr[len(fr) // 2] if fr[len(fr) // 2] != best else fr[0])
 
     cut_id = vimeo_upload(out, f"[YT] {plan['yt_title']}",
                           f"YouTube cut of {meta['link']} ({hms(start)}–{hms(end)})")
     excerpt = " ".join(t for s, _, t in segs if start <= s <= start + 45)
+    if a.dry_run:
+        vimeo_set_picture(cut_id, thumb)
+        report = {"source": meta["link"], "window": f"{hms(start)}–{hms(end)}",
+                  "cut": f"https://vimeo.com/{cut_id}", "opening_lines": excerpt, **plan}
+        out = json.dumps(report, indent=1, ensure_ascii=False)
+        print(out)
+        import os
+        if os.environ.get("GITHUB_STEP_SUMMARY"):
+            with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
+                f.write(f"## Test cut\n\n**Watch:** https://vimeo.com/{cut_id}\n\n```json\n{out}\n```\n")
+        return
     record = ops("POST", "/cuts", json={
         "proposal_id": a.proposal_id, "source_vimeo_id": vid, "source_link": meta["link"],
         "cut_vimeo_id": cut_id, "start_sec": start, "end_sec": end, "duration_sec": end - start,

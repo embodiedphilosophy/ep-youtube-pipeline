@@ -141,6 +141,9 @@ def render(frame_path, headline, out_path, accent=None, teacher=None, series=Non
         size -= 4
     asize = int(size * 1.05)
     af = font_for(SERIF, asize, accent) if accent else None
+    while accent and asize > 40 and d.textlength(accent, font=af) > max_text_w + 40:
+        asize -= 4  # keep the orange line clear of the speaker
+        af = font_for(SERIF, asize, accent)
     credit_f = ImageFont.truetype(SANS, 20)
 
     line_h = size * 1.02

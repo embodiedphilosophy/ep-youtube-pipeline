@@ -22,7 +22,12 @@ standalone YouTube episode. Rules:
 - Start at the beginning of a thought, ideally with a question, claim or story that hooks within 30 seconds.
 - End on a resolved point, not mid-argument. No housekeeping, logistics, tech trouble or audience roll-call.
 - Prefer the densest, most vivid teaching: clear ideas, stories, striking images, Sanskrit terms explained.
-- Write metadata ONLY from what is actually said. Never invent claims, credentials or quotes.
+- The excerpt must begin at the start of a full sentence (never mid-sentence) and "why" must describe
+  what is actually said in its first lines.
+- Write metadata ONLY from what is actually said in the chosen stretch, plus the source title/description.
+  Never invent claims, credentials, quotes, lineages or affiliations. Tags must be words or names that
+  literally appear in the stretch or the source title (no inferred traditions or institutions).
+- If a transcript line looks garbled (speech-to-text error), leave it out rather than guessing its meaning.
 - Use correct IAST diacritics for Sanskrit (Kuṇḍalinī, Yoginīs, Śiva).
 - Title style matches the channel: a clear searchable topic, optional subtitle, and "with <Teacher>" when known,
   e.g. "What Karma Actually Means with Phil Goldberg", "Who Are the Yoginīs? Origins, History & the Seven Chakras".
@@ -87,8 +92,30 @@ Return:
 "yt_title":"…","yt_description":"3 short paragraphs drawn from what is said, then a blank line",
 "tags":["…"],"hashtags":["#…"],
 "thumb_headline":"2–5 punchy words for the thumbnail (no teacher name)",
-"thumb_accent":"optional 1–3 word phrase for the orange italic line, or null"}}"""
+"thumb_accent":"optional 1–3 word phrase (max 20 characters) for the orange italic line, or null"}}"""
     return claude_json(SYSTEM, ask, max_tokens=3000)
+
+
+def fact_check(plan, segs, start, end, meta):
+    """Second pass: strike anything in the metadata not supported by the chosen stretch."""
+    window = "\n".join(t for s_, _, t in segs if start <= s_ <= end)
+    ask = f"""Source title: {meta['name']}
+Source description: {(meta.get('description') or '')[:800]}
+
+Transcript of the chosen excerpt:
+{window}
+
+Draft YouTube metadata:
+{json.dumps({k: plan.get(k) for k in ("yt_title", "yt_description", "tags", "hashtags", "why", "thumb_headline", "thumb_accent")}, ensure_ascii=False, indent=1)}
+
+Check every claim, name and tag against the excerpt and source title/description. Remove or rewrite
+anything unsupported (inferred traditions, institutions, credentials, garbled details). Keep the style.
+"why" must describe what the excerpt's first lines actually say. thumb_accent max 20 characters or null.
+Return the corrected object with the same keys plus "removed": ["what you cut and why"]."""
+    fixed = claude_json(SYSTEM, ask, max_tokens=3000)
+    if fixed.get("removed"):
+        print("Fact-check removed:", json.dumps(fixed["removed"], ensure_ascii=False))
+    return {**plan, **{k: v for k, v in fixed.items() if k != "removed"}}
 
 
 def to_sec(t):
@@ -98,10 +125,23 @@ def to_sec(t):
     return sum(v * 60 ** i for i, v in enumerate(reversed(p)))
 
 
+SENT_END = (".", "?", "!", "…", '"', "”")
+
+
+def _sentence_starts(segs):
+    """Indices of segments that begin a new sentence (previous segment ended a sentence)."""
+    return [i for i in range(len(segs)) if i == 0 or segs[i - 1][2].rstrip().endswith(SENT_END)]
+
+
 def snap(segs, start, end):
-    """Snap to caption boundaries and force the 15–20 min window."""
-    start = min((s for s, _, _ in segs), key=lambda s: abs(s - start))
-    ends = [e for _, e, _ in segs if MIN_S <= e - start <= MAX_S]
+    """Snap start to the nearest sentence start and end to a sentence end, keeping 15–20 min."""
+    starts = _sentence_starts(segs) or list(range(len(segs)))
+    near = [i for i in starts if abs(segs[i][0] - start) <= 45] or starts
+    si = min(near, key=lambda i: abs(segs[i][0] - start))
+    start = segs[si][0]
+    ends = [e for _, e, t in segs[si:] if MIN_S <= e - start <= MAX_S and t.rstrip().endswith(SENT_END)]
+    if not ends:
+        ends = [e for _, e, _ in segs[si:] if MIN_S <= e - start <= MAX_S]
     end = min(ends, key=lambda e: abs(e - end)) if ends else start + min(MAX_S, max(MIN_S, end - start))
     return max(0, start - 0.3), end + 0.6
 
@@ -165,6 +205,7 @@ def main():
     start, end = snap(segs, to_sec(plan["start"]), to_sec(plan["end"]))
     if a.start is not None and a.end is not None:
         start, end = a.start, a.end
+    plan = fact_check(plan, segs, start, end, meta)
     teacher = a.teacher or plan.get("teacher")
     series = a.series or plan.get("series")
 

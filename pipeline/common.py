@@ -73,8 +73,11 @@ def best_source_link(vid, max_height=1080):
 def vimeo_upload(path, name, description="", private=True):
     """Upload via tus; returns new video id. Puts it in the queue folder if configured."""
     size = os.path.getsize(path)
+    owner = os.environ.get("VIMEO_FOLDER_OWNER", "47986380")
     body = {"upload": {"approach": "tus", "size": str(size)}, "name": name, "description": description,
             "privacy": {"view": "unlisted" if private else "anybody", "embed": "public", "download": True}}
+    if QUEUE_FOLDER_ID:  # file straight into the team-library folder at upload time
+        body["folder_uri"] = f"/users/{owner}/projects/{QUEUE_FOLDER_ID}"
     d = vimeo("POST", "/me/videos", json=body)
     link, offset = d["upload"]["upload_link"], 0
     with open(path, "rb") as f:
@@ -87,15 +90,17 @@ def vimeo_upload(path, name, description="", private=True):
             r.raise_for_status()
             offset = int(r.headers["Upload-Offset"])
     vid = vimeo_id(d["uri"])
-    if QUEUE_FOLDER_ID:  # team-library folders live under the owning user, not /me
-        owner = os.environ.get("VIMEO_FOLDER_OWNER", "47986380")
-        for path in (f"/users/{owner}/projects/{QUEUE_FOLDER_ID}/videos/{vid}",
-                     f"/me/projects/{QUEUE_FOLDER_ID}/videos/{vid}"):
-            try:
-                vimeo("PUT", path)
-                break
-            except Exception as e:  # noqa: BLE001
-                print("Could not file into YouTube Queue folder via", path, "-", e)
+    if QUEUE_FOLDER_ID:
+        folder = (vimeo("GET", f"/videos/{vid}?fields=parent_folder.uri").get("parent_folder") or {}).get("uri", "")
+        if not folder.endswith(f"/projects/{QUEUE_FOLDER_ID}"):
+            for path in (f"/users/{owner}/projects/{QUEUE_FOLDER_ID}/videos/{vid}",
+                         f"/me/projects/{QUEUE_FOLDER_ID}/videos/{vid}"):
+                try:
+                    vimeo("PUT", path)
+                except Exception as e:  # noqa: BLE001
+                    print("Could not file into YouTube Queue via", path, "-", e)
+            folder = (vimeo("GET", f"/videos/{vid}?fields=parent_folder.uri").get("parent_folder") or {}).get("uri", "")
+        print("Vimeo folder for cut:", folder or "(none — left in Team library root)")
     return vid
 
 

@@ -15,7 +15,8 @@ def step(name, fn):
         print(f"✅ {name}: {fn()}")
     except Exception as e:  # noqa: BLE001
         ok = False
-        print(f"❌ {name}: {e}")
+        body = getattr(getattr(e, "response", None), "text", "")
+        print(f"❌ {name}: {e} {body[:600]}")
 
 
 def vimeo_me():

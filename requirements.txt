@@ -1,0 +1,8 @@
+requests>=2.31
+pillow>=10
+opencv-python-headless>=4.9
+numpy
+fonttools
+rembg[cpu]>=2.0.50
+onnxruntime
+faster-whisper>=1.0

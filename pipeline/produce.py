@@ -176,6 +176,7 @@ def main():
                    WORK / f"{vid}_thumb.jpg", accent=a.accent or plan.get("thumb_accent"),
                    teacher=teacher, series=series, bg_frame=fr[len(fr) // 2] if fr[len(fr) // 2] != best else fr[0])
 
+    print(json.dumps({"window": f"{hms(start)}–{hms(end)}", **plan}, indent=1, ensure_ascii=False))
     cut_id = vimeo_upload(out, f"[YT] {plan['yt_title']}",
                           f"YouTube cut of {meta['link']} ({hms(start)}–{hms(end)})")
     excerpt = " ".join(t for s, _, t in segs if start <= s <= start + 45)

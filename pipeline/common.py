@@ -87,8 +87,15 @@ def vimeo_upload(path, name, description="", private=True):
             r.raise_for_status()
             offset = int(r.headers["Upload-Offset"])
     vid = vimeo_id(d["uri"])
-    if QUEUE_FOLDER_ID:
-        vimeo("PUT", f"/me/projects/{QUEUE_FOLDER_ID}/videos/{vid}")
+    if QUEUE_FOLDER_ID:  # team-library folders live under the owning user, not /me
+        owner = os.environ.get("VIMEO_FOLDER_OWNER", "47986380")
+        for path in (f"/users/{owner}/projects/{QUEUE_FOLDER_ID}/videos/{vid}",
+                     f"/me/projects/{QUEUE_FOLDER_ID}/videos/{vid}"):
+            try:
+                vimeo("PUT", path)
+                break
+            except Exception as e:  # noqa: BLE001
+                print("Could not file into YouTube Queue folder via", path, "-", e)
     return vid
 
 

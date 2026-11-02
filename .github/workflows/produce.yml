@@ -8,6 +8,7 @@ on:
       vimeo_id: { required: true }
       proposal_id: { required: false }
       teacher: { required: false }
+      dry_run: { description: "Test mode (skip Ops)", type: boolean, default: false }
 jobs:
   produce:
     runs-on: ubuntu-latest
@@ -41,4 +42,5 @@ jobs:
           if [ "${{ github.event.action }}" = "thumb" ]; then
             ARGS+=(--thumb-only "${{ github.event.client_payload.cut_id }}")
           fi
+          [ "${{ inputs.dry_run }}" = "true" ] && ARGS+=(--dry-run)
           python pipeline/produce.py "${ARGS[@]}"

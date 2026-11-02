@@ -62,9 +62,13 @@ def transcript(vid, src_path=None):
                 return segs, None
     # fallback: local Whisper on the audio
     src_path = src_path or download(best_source_link(vid), WORK / f"{vid}.mp4")
+    import numpy as np
     from faster_whisper import WhisperModel
-    model = WhisperModel("small.en", device="cpu", compute_type="int8")
-    segs, _ = model.transcribe(str(src_path), vad_filter=True)
+    pcm = subprocess.run(["ffmpeg", "-loglevel", "error", "-i", str(src_path), "-vn", "-ac", "1",
+                          "-ar", "16000", "-f", "s16le", "-"], check=True, capture_output=True).stdout
+    audio = np.frombuffer(pcm, np.int16).astype(np.float32) / 32768.0
+    model = WhisperModel("small.en", device="cpu", compute_type="int8", cpu_threads=4)
+    segs, _ = model.transcribe(audio, vad_filter=True, beam_size=1)
     return [[s.start, s.end, s.text.strip()] for s in segs], src_path
 
 

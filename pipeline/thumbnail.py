@@ -20,7 +20,10 @@ WHITE = (255, 255, 255)
 
 
 # ------------------------------------------------------------------ frame picking
-_face = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+try:
+    _face = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+except Exception:  # noqa: BLE001 — broken/partial OpenCV build: score on sharpness only
+    _face = None
 
 
 def score_frame(path):
@@ -30,7 +33,7 @@ def score_frame(path):
         return -1
     g = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     sharp = cv2.Laplacian(g, cv2.CV_64F).var()
-    faces = () if _face.empty() else _face.detectMultiScale(
+    faces = () if _face is None or _face.empty() else _face.detectMultiScale(
         g, 1.1, 6, minSize=(g.shape[1] // 12, g.shape[1] // 12))
     if len(faces) == 0:
         return sharp * 0.1

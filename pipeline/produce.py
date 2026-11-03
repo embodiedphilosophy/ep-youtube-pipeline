@@ -27,6 +27,8 @@ standalone YouTube episode. Rules:
 - Write metadata ONLY from what is actually said in the chosen stretch, plus the source title/description.
   Never invent claims, credentials, quotes, lineages or affiliations. Tags must be words or names that
   literally appear in the stretch or the source title (no inferred traditions or institutions).
+- Never mention file names, internal Vimeo titles or codes (e.g. "RBody - Pandit Tigunait 1") in the
+  description. End it with one plain line naming the event, e.g. "From Embodied Philosophy's Radical Body conference."
 - If a transcript line looks garbled (speech-to-text error), leave it out rather than guessing its meaning.
 - Use correct IAST diacritics for Sanskrit (Kuṇḍalinī, Yoginīs, Śiva).
 - Title style matches the channel: a clear searchable topic, optional subtitle, and "with <Teacher>" when known,
@@ -221,6 +223,7 @@ def main():
     cut_id = vimeo_upload(out, f"[YT] {plan['yt_title']}",
                           f"YouTube cut of {meta['link']} ({hms(start)}–{hms(end)})")
     excerpt = " ".join(t for s, _, t in segs if start <= s <= start + 45)
+    cut_link = vimeo("GET", f"/videos/{cut_id}?fields=link").get("link", f"https://vimeo.com/{cut_id}")
     if a.dry_run:
         vimeo_set_picture(cut_id, thumb)
         report = {"source": meta["link"], "window": f"{hms(start)}–{hms(end)}",
@@ -234,7 +237,7 @@ def main():
         return
     record = ops("POST", "/cuts", json={
         "proposal_id": a.proposal_id, "source_vimeo_id": vid, "source_link": meta["link"],
-        "cut_vimeo_id": cut_id, "start_sec": start, "end_sec": end, "duration_sec": end - start,
+        "cut_vimeo_id": cut_id, "cut_link": cut_link, "start_sec": start, "end_sec": end, "duration_sec": end - start,
         "why": plan.get("why"), "opening_lines": excerpt, "teacher": teacher, "series": series,
         "yt_title": plan["yt_title"], "yt_description": plan["yt_description"],
         "yt_tags": plan.get("tags", []), "hashtags": plan.get("hashtags", []),

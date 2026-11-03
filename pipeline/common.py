@@ -126,8 +126,7 @@ def claude_json(system, user, max_tokens=4000):
 
 # ---------------------------------------------------------------- Ops dashboard
 def ops(method, path, **kw):
-    params = {"path": path, **(kw.pop("params", None) or {})}  # Ops route: /api/youtube?path=/cuts/12/...
-    r = requests.request(method, f"{OPS_URL}/api/youtube", params=params, timeout=120,
+    r = requests.request(method, f"{OPS_URL}/api/youtube{path}", timeout=120,
                          headers={"Authorization": f"Bearer {OPS_SECRET}"}, **kw)
     r.raise_for_status()
     return r.json() if r.content else {}

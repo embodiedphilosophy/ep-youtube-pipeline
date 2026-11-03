@@ -1,9 +1,7 @@
-name: Run Ops queue (approved picks, re-cuts, Push to YouTube)
+name: Run Ops queue (not used — Ops starts produce/publish directly)
+# Ops (ep-ops PR #20) fires the produce / thumb / publish workflows itself with GITHUB_PIPELINE_TOKEN,
+# so this polling runner is switched off. Kept for reference; run by hand only.
 on:
-  schedule:
-    - cron: "7,37 * * * *"   # every 30 minutes
-  repository_dispatch:
-    types: [queue]
   workflow_dispatch:
 concurrency: { group: ops-queue, cancel-in-progress: false }
 jobs:

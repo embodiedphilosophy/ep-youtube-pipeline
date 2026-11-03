@@ -1,0 +1,37 @@
+name: Run Ops queue (approved picks, re-cuts, Push to YouTube)
+on:
+  schedule:
+    - cron: "7,37 * * * *"   # every 30 minutes
+  repository_dispatch:
+    types: [queue]
+  workflow_dispatch:
+concurrency: { group: ops-queue, cancel-in-progress: false }
+jobs:
+  queue:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    env:
+      VIMEO_TOKEN: ${{ secrets.VIMEO_TOKEN }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      OPS_PIPELINE_SECRET: ${{ secrets.OPS_PIPELINE_SECRET }}
+      OPS_URL: ${{ vars.OPS_URL }}
+      VIMEO_QUEUE_FOLDER_ID: ${{ vars.VIMEO_QUEUE_FOLDER_ID }}
+      YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+      YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+      YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -q requests
+      - id: peek
+        run: python pipeline/queue_runner.py --peek
+      - if: steps.peek.outputs.waiting != '0'
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+      - if: steps.peek.outputs.waiting != '0'
+        run: |
+          pip install -r requirements.txt
+          pip uninstall -y opencv-python opencv-contrib-python opencv-python-headless
+          pip install opencv-python-headless
+      - if: steps.peek.outputs.waiting != '0'
+        run: python pipeline/queue_runner.py
